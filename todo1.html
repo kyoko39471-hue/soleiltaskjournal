@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Task Logger</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        /* Custom Styles for Fixed-Height Scrollable History */
+        #history-list {
+            /* Max height that works well on most screens */
+            max-height: 40vh; 
+            overflow-y: auto; /* Enable vertical scrolling */
+            /* Custom Scrollbar Styling (optional but nice) */
+            scrollbar-width: thin;
+            scrollbar-color: #1d4ed8 #f3f4f6;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 10px 10px 10px 15px;
+            border-bottom: 1px solid #f3f4f6; /* light line separation */
+        }
+        
+        .task-item:last-child {
+            border-bottom: none;
+        }
+
+        .task-text {
+            flex-grow: 1;
+            padding: 0 12px;
+            font-size: 1rem;
+            line-height: 1.5;
+            word-break: break-word; /* Ensure long words wrap */
+        }
+
+        .check-icon {
+            cursor: pointer;
+            font-size: 1.25rem;
+            transition: color 0.1s ease;
+            flex-shrink: 0;
+        }
+
+        .incomplete-icon {
+            color: #9ca3af; /* Gray */
+        }
+
+        .completed-icon {
+            color: #FACC15;
+        }
+        
+        // ... inside function createTaskElement(task, type) { ...
+
+    const checkIcon = document.createElement('i');
+    
+    // MODIFICATION A: Change the completed icon from 'fas fa-check-circle' to 'fas fa-circle' 
+    //                 to get a solid bullet point.
+    checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
+    checkIcon.onclick = () => toggleTask(task);
+    
+    const taskText = document.createElement('span');
+    taskText.textContent = task.text;
+    
+   
+
+        
+        /* Modal Backdrop */
+        .auth-modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Hide content until authenticated */
+        #app-container {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans p-4 sm:p-8">
+
+    <div id="auth-modal" class="auth-modal-backdrop">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full space-y-6">
+            <h2 class="text-2xl font-bold text-center text-gray-800">Welcome!</h2>
+            <p id="auth-error" class="text-sm text-center text-red-500 hidden"></p>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label for="auth-email" class="block text-sm font-medium text-gray-700">Email</label>
+                    <input 
+                        id="auth-email" 
+                        type="email" 
+                        placeholder="user@example.com" 
+                        required 
+                        class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
+                    >
+                </div>
+                <div>
+                    <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input 
+                        id="auth-password" 
+                        type="password" 
+                        placeholder="••••••••" 
+                        required 
+                        class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
+                    >
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <button 
+                        type="button" 
+                        id="btn-login"
+                        class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
+                    >
+                        Log In
+                    </button>
+                    <button 
+                        type="button" 
+                        id="btn-register"
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
+                    >
+                        Register
+                    </button>
+                    </div>
+            </form>
+
+        </div>
+    </div>
+
+
+    <div id="app-container" class="max-w-xl mx-auto bg-white shadow-xl rounded-2xl p-6 md:p-8 space-y-8">
+
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-gray-800 tracking-tight">🐱Soleil Task Journal🐶</h1>
+            <p class="text-sm text-gray-500 mt-1">
+                Logged in as: <span id="user-id-display" class="font-mono text-xs bg-gray-100 px-2 py-1 rounded">...</span>
+                <button id="btn-logout" class="ml-2 text-red-500 hover:text-red-700 text-xs font-semibold"> (Logout) </button>
+            </p>
+        </header>
+
+        <form id="task-form" class="flex gap-2">
+            <input 
+                id="task-input" 
+                type="text" 
+                placeholder="What's your task for today?" 
+                required 
+                class="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+            >
+            <button 
+                type="submit" 
+                class="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-5 rounded-xl transition duration-200 shadow-md flex items-center justify-center"
+                aria-label="Add Task"
+            >
+                <i class="fas fa-plus"></i>
+            </button>
+        </form>
+
+        <section class="space-y-4">
+            <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🩵 Today's Tasks</h2>
+            <div id="active-list" class="divide-y divide-gray-100 min-h-[50px]">
+                <p id="loading-indicator" class="text-gray-500 text-center py-4">Loading tasks...</p>
+            </div>
+            <p id="no-active-tasks" class="text-gray-500 italic text-sm hidden">It's a fresh day! Add a task to get started.</p>
+        </section>
+
+        <section class="space-y-4 pt-4 border-t border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🩶 Task History (Past Dates)</h2>
+            <div id="history-list" class="bg-gray-100 p-4 rounded-xl shadow-inner">
+                <p id="no-history-tasks" class="text-gray-500 italic text-sm hidden">No tasks found in history yet.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            // Removed: signInAnonymously 
+            signInWithCustomToken, 
+            onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            collection, 
+            query, 
+            orderBy, 
+            addDoc, 
+            updateDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            serverTimestamp, 
+            doc,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // setLogLevel('debug'); // Uncomment for debugging
+
+        // --- 1. Global Variables & Configuration ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        let firebaseConfig = {};
+        
+        try {
+            const envConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+
+            if (envConfig) {
+                firebaseConfig = JSON.parse(envConfig);
+            } else {
+                // If config is not provided by the environment, use a placeholder 
+                firebaseConfig = {apiKey: "AIzaSyBfqECRUln_chnQ4tR-u5RXQT8ElmMxgyk",
+               authDomain: "sj-s-todolist.firebaseapp.com",
+                    projectId: "sj-s-todolist",
+                    storageBucket: "sj-s-todolist.firebasestorage.app",
+                    messagingSenderId: "610476861469",
+                   appId: "1:610476861469:web:1a611cee75afdca6a6fef4",
+}; 
+                console.warn("Using empty config. Firebase will only run if configuration is provided by the environment.");
+            }
+
+        } catch (e) {
+            console.error("Failed to parse firebase config:", e);
+        }
+        
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app, db, auth, userId = null;
+        let isAuthReady = false;
+
+        // --- CRITICAL: Synchronous Firebase Initialization ---
+        try {
+            if (Object.keys(firebaseConfig).length > 0) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } else {
+                 console.error("Firebase services cannot be initialized due to missing configuration.");
+            }
+        } catch (error) {
+            console.error("Critical error during synchronous Firebase initialization:", error);
+        }
+
+        // UI Elements
+        const authModalEl = document.getElementById('auth-modal');
+        const appContainerEl = document.getElementById('app-container');
+        const authErrorEl = document.getElementById('auth-error');
+        const authEmailInput = document.getElementById('auth-email');
+        const authPasswordInput = document.getElementById('auth-password');
+        const activeListEl = document.getElementById('active-list');
+        const historyListEl = document.getElementById('history-list');
+        const loadingIndicatorEl = document.getElementById('loading-indicator');
+        const userIdDisplayEl = document.getElementById('user-id-display');
+        const noActiveTasksEl = document.getElementById('no-active-tasks');
+        const noHistoryTasksEl = document.getElementById('no-history-tasks');
+
+        // Helper to get today's date at midnight (for filtering)
+        const getStartOfToday = () => {
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            return now;
+        };
+
+        // --- AUTH Helpers ---
+        function displayAuthError(message) {
+            authErrorEl.textContent = message;
+            authErrorEl.classList.remove('hidden');
+        }
+
+        function hideAuthError() {
+            authErrorEl.classList.add('hidden');
+            authErrorEl.textContent = '';
+        }
+
+        function clearAuthInputs() {
+            authEmailInput.value = '';
+            authPasswordInput.value = '';
+        }
+
+        function showApp(user) {
+            userId = user.uid;
+            // Removed conditional display for Anonymous user ID
+            userIdDisplayEl.textContent = user.email || userId;
+            authModalEl.classList.add('hidden');
+            appContainerEl.style.display = 'block'; // Show the main app content
+            isAuthReady = true;
+            clearAuthInputs(); // Clear inputs on successful sign-in
+            setupRealtimeListener();
+        }
+
+        function showLogin() {
+            userId = null;
+            authModalEl.classList.remove('hidden');
+            appContainerEl.style.display = 'none'; // Hide the main app content
+            isAuthReady = false;
+        }
+
+        // --- 2. Authentication Flow (Async) ---
+        async function initializeFirebase() {
+            if (!auth) {
+                showLogin();
+                displayAuthError("Initialization failed. Check console for config errors.");
+                return;
+            }
+            
+            // Setup the state listener
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    showApp(user);
+                } else {
+                    showLogin();
+                }
+            });
+
+            // Attempt custom token sign-in if token is available
+            if (initialAuthToken) {
+                await signInWithCustomToken(auth, initialAuthToken).catch(e => {
+                    console.warn("Custom token failed, relying on user login.", e);
+                });
+            }
+        }
+
+        // --- AUTH Functions (Email/Password) ---
+
+        async function register(email, password) {
+            if (!auth) { displayAuthError("Firebase not initialized."); return; }
+            if (!email || !password) { displayAuthError("Please enter both email and password."); return; }
+            
+            hideAuthError();
+            try {
+                // IMPORTANT: This requires Email/Password sign-in to be enabled in Firebase console
+                await createUserWithEmailAndPassword(auth, email, password);
+                // showApp() is called via onAuthStateChanged on success
+            } catch (error) {
+                displayAuthError("Registration failed: " + error.message.replace('Firebase: ', ''));
+            }
+        }
+
+        async function login(email, password) {
+            if (!auth) { displayAuthError("Firebase not initialized."); return; }
+            if (!email || !password) { displayAuthError("Please enter both email and password."); return; }
+
+            hideAuthError();
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // showApp() is called via onAuthStateChanged on success
+            } catch (error) {
+                displayAuthError("Login failed: " + error.message.replace('Firebase: ', ''));
+            }
+        }
+
+        // Removed: anonymousLogin function
+      
+        async function handleLogout() {
+            if (!auth) return;
+            try {
+                await signOut(auth);
+            } catch (error) {
+                console.error("Logout failed:", error);
+            }
+        }
+
+
+        // --- 3. Realtime Listener and Data Rendering ---
+        function setupRealtimeListener() {
+// ... (omitting setupRealtimeListener, renderTasks, createTaskElement) ...
+            if (!db || !userId) return;
+
+            // Collection path: /artifacts/{appId}/users/{userId}/tasks
+            const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
+            
+            // Query for all tasks, ordered by creation date (newest first)
+            const tasksQuery = query(
+                tasksCollectionRef,
+                orderBy('dateCreated', 'desc')
+            );
+            
+            // onSnapshot listens for real-time changes
+            onSnapshot(tasksQuery, (snapshot) => {
+                loadingIndicatorEl.classList.add('hidden');
+                
+                const tasks = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                
+                renderTasks(tasks);
+            }, (error) => {
+                console.error("Firestore Snapshot Error:", error);
+                loadingIndicatorEl.textContent = "Error loading data.";
+            });
+        }
+
+        function renderTasks(tasks) {
+            const startOfToday = getStartOfToday().getTime();
+            
+            const activeTasks = [];
+            const historyTasks = [];
+
+            tasks.forEach(task => {
+                // Ensure dateCreated is a valid Timestamp before calling toDate()
+                const taskTime = task.dateCreated?.toDate?.()?.getTime() || 0;
+                
+                if (taskTime >= startOfToday) {
+                    activeTasks.push(task);
+                } else {
+                    historyTasks.push(task);
+                }
+            });
+
+            // Sort: Incomplete tasks first, then by creation date (newest first)
+            activeTasks.sort((a, b) => a.isCompleted - b.isCompleted || (b.dateCreated?.seconds - a.dateCreated?.seconds || 0));
+
+            // --- Render Active List ---
+            activeListEl.innerHTML = '';
+            if (activeTasks.length === 0) {
+                noActiveTasksEl.classList.remove('hidden');
+            } else {
+                noActiveTasksEl.classList.add('hidden');
+                activeTasks.forEach(task => activeListEl.appendChild(createTaskElement(task, 'active')));
+            }
+
+            // --- Render History List ---
+            historyListEl.innerHTML = '';
+            if (historyTasks.length === 0) {
+                noHistoryTasksEl.classList.remove('hidden');
+            } else {
+                noHistoryTasksEl.classList.add('hidden');
+                historyTasks.forEach(task => historyListEl.appendChild(createTaskElement(task, 'history')));
+            }
+        }
+
+        function createTaskElement(task, type) {
+            const div = document.createElement('div');
+            // 'px-1' is slightly tighter padding for history items
+            div.className = `task-item ${type === 'history' ? 'px-1' : ''}`;
+
+            const checkIcon = document.createElement('i');
+            checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-check-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
+            checkIcon.onclick = () => toggleTask(task);
+            
+            const taskText = document.createElement('span');
+            taskText.textContent = task.text;
+            // Use the general 'task-text-completed' class for consistent styling
+            const completedClass = task.isCompleted ? 'task-text-completed' : 'text-gray-700';
+            taskText.className = `task-text ${completedClass}`;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.innerHTML = '<i class="fas fa-trash-alt text-red-400 hover:text-red-600 transition"></i>';
+            deleteBtn.className = 'ml-auto p-2 rounded-lg hover:bg-gray-200 transition flex-shrink-0';
+            deleteBtn.onclick = () => deleteTask(task.id);
+
+            div.appendChild(checkIcon);
+            div.appendChild(taskText);
+            div.appendChild(deleteBtn);
+
+            return div;
+        }
+
+        // --- 4. CRUD Operations ---
+
+        async function addTask(text) {
+// ... (omitting addTask, toggleTask, deleteTask) ...
+            if (!isAuthReady || !userId) {
+                console.error("System not ready or user ID missing. Cannot add task.");
+                return;
+            }
+
+            try {
+                const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
+                await addDoc(tasksCollectionRef, {
+                    // Removed redundant 'userId' field, as it is scoped by the collection path
+                    text: text,
+                    isCompleted: false,
+                    dateCreated: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("Error adding document: ", e);
+            }
+        }
+
+        async function toggleTask(task) {
+            if (!isAuthReady || !userId) return;
+            try {
+                const taskRef = doc(db, `artifacts/${appId}/users/${userId}/tasks`, task.id);
+                await updateDoc(taskRef, {
+                    isCompleted: !task.isCompleted
+                });
+            } catch (e) {
+                console.error("Error updating document:", e);
+            }
+        }
+
+        async function deleteTask(taskId) {
+            // CRITICAL FIX: Removed window.confirm() which is forbidden in this environment. 
+            // The delete button now executes the deletion directly.
+            if (!isAuthReady || !userId) return;
+            try {
+                const taskRef = doc(db, `artifacts/${appId}/users/${userId}/tasks`, taskId);
+                await deleteDoc(taskRef);
+            } catch (e) {
+                console.error("Error deleting document:", e);
+            }
+        }
+        
+        // --- 5. Event Listeners ---
+        document.addEventListener('DOMContentLoaded', initializeFirebase);
+        
+        // Task Form Listener
+        document.getElementById('task-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = document.getElementById('task-input');
+            const taskText = input.value.trim();
+            if (taskText) {
+                addTask(taskText);
+                input.value = '';
+            }
+        });
+
+        // Authentication Button Listeners
+        document.getElementById('btn-register').addEventListener('click', () => {
+            const email = authEmailInput.value.trim();
+            const password = authPasswordInput.value.trim();
+            register(email, password);
+        });
+
+        document.getElementById('btn-login').addEventListener('click', () => {
+            const email = authEmailInput.value.trim();
+            const password = authPasswordInput.value.trim();
+            login(email, password);
+        });
+
+        // Removed: document.getElementById('btn-anonymous').addEventListener('click', anonymousLogin);
+        document.getElementById('btn-logout').addEventListener('click', handleLogout);
+
+    </script>
+
+</body>
+</html>

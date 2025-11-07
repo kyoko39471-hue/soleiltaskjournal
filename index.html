@@ -12,7 +12,7 @@
         /* Custom Styles for Fixed-Height Scrollable History */
         #history-list {
             /* Max height that works well on most screens */
-            max-height: 40vh; 
+            max-height: 40vh;
             overflow-y: auto; /* Enable vertical scrolling */
             /* Custom Scrollbar Styling (optional but nice) */
             scrollbar-width: thin;
@@ -52,19 +52,6 @@
         .completed-icon {
             color: #FACC15;
         }
-
-        // ... inside function createTaskElement(task, type) { ...
-
-    const checkIcon = document.createElement('i');
-
-    // MODIFICATION A: Change the completed icon from 'fas fa-check-circle' to 'fas fa-circle' 
-    //                 to get a solid bullet point.
-    checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
-    checkIcon.onclick = () => toggleTask(task);
-
-    const taskText = document.createElement('span');
-    taskText.textContent = task.text;
-
 
         /* Modal Backdrop */
         .auth-modal-backdrop {
@@ -179,6 +166,11 @@
             </div>
         </section>
 
+        <section class="space-y-4 pt-8 border-t border-gray-200">
+  	        <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🌟 Notes</h2>
+   	        <textarea id="notes-textarea"class="w-full h-32 p-3 border border-gray-300 rounded-lg"placeholder="Write a reminder or an inspirational thought..."></textarea>
+        </section>
+
     </div>
 
     <script type="module">
@@ -203,10 +195,10 @@
             onSnapshot, 
             serverTimestamp, 
             doc,
+            getDoc,
+            setDoc,
             setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // setLogLevel('debug'); // Uncomment for debugging
 
         // --- 1. Global Variables & Configuration ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -263,6 +255,9 @@
         const userIdDisplayEl = document.getElementById('user-id-display');
         const noActiveTasksEl = document.getElementById('no-active-tasks');
         const noHistoryTasksEl = document.getElementById('no-history-tasks');
+        const notesTextareaEl = document.getElementById('notes-textarea');//new
+        //const noteDocRefFor = (uid) => doc(getFirestore(), 'users', uid, 'meta', 'notes');//new
+        const noteDocRef = () => doc(db, `artifacts/${appId}/users/${userId}/meta/notes`);
 
         // Helper to get today's date at midnight (for filtering)
         const getStartOfToday = () => {
@@ -270,6 +265,15 @@
             now.setHours(0, 0, 0, 0);
             return now;
         };
+
+        // --- NOTES: small helper ---
+        function debounce(fn, delay = 600) {
+        let t;
+        return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), delay);
+        };
+        }
 
         // --- AUTH Helpers ---
         function displayAuthError(message) {
@@ -296,6 +300,8 @@
             isAuthReady = true;
             clearAuthInputs(); // Clear inputs on successful sign-in
             setupRealtimeListener();
+            initNotesBinding();           // ← add
+            loadNotes();                  // ← add
         }
 
         function showLogin() {
@@ -303,6 +309,7 @@
             authModalEl.classList.remove('hidden');
             appContainerEl.style.display = 'none'; // Hide the main app content
             isAuthReady = false;
+            clearNotesUI();  
         }
 
         // --- 2. Authentication Flow (Async) ---
@@ -470,7 +477,7 @@
         // --- 4. CRUD Operations ---
 
         async function addTask(text) {
-// ... (omitting addTask, toggleTask, deleteTask) ...
+        // ... (omitting addTask, toggleTask, deleteTask) ...
             if (!isAuthReady || !userId) {
                 console.error("System not ready or user ID missing. Cannot add task.");
                 return;
@@ -513,6 +520,39 @@
             }
         }
 
+        async function loadNotes() {
+  if (!isAuthReady || !userId || !db || !notesTextareaEl) return;
+  try {
+    const snap = await getDoc(noteDocRef());
+    const data = snap.exists() ? snap.data() : null;
+    notesTextareaEl.value = data?.text || '';
+  } catch (e) {
+    console.error('Failed to load notes:', e);
+  }
+}
+
+        const saveNotes = debounce(async (text) => {
+  if (!isAuthReady || !userId || !db) return;
+  try {
+    await setDoc(
+      noteDocRef(),
+      { text, updatedAt: serverTimestamp() },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error('Failed to save notes:', e);
+  }
+});
+
+        function initNotesBinding() {
+  if (!notesTextareaEl) return;
+  // save when the user pauses typing
+  notesTextareaEl.addEventListener('input', (e) => saveNotes(e.target.value));
+}
+
+        function clearNotesUI() {
+  if (notesTextareaEl) notesTextareaEl.value = '';
+}
         // --- 5. Event Listeners ---
         document.addEventListener('DOMContentLoaded', initializeFirebase);
 
@@ -547,4 +587,3 @@
 
 </body>
 </html>
-

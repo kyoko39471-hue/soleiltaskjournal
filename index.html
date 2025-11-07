@@ -53,19 +53,6 @@
             color: #FACC15;
         }
         
-        // ... inside function createTaskElement(task, type) { ...
-
-    const checkIcon = document.createElement('i');
-    
-    // MODIFICATION A: Change the completed icon from 'fas fa-check-circle' to 'fas fa-circle' 
-    //                 to get a solid bullet point.
-    checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
-    checkIcon.onclick = () => toggleTask(task);
-    
-    const taskText = document.createElement('span');
-    taskText.textContent = task.text;
-    
-          
         /* Modal Backdrop */
         .auth-modal-backdrop {
             position: fixed;
@@ -179,13 +166,19 @@
             </div>
         </section>
 
+        <section class="space-y-4 pt-8 border-t border-gray-200">
+            <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🌟 Top 3 Priorities </h2>
+            <div id="priorities-grid" class="grid grid-cols-1 gap-4"> 
+            </div>
+            <p id="loading-priorities" class="text-gray-500 text-center py-2">Loading priorities...</p>
+        </section>
+
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { 
             getAuth, 
-            // Removed: signInAnonymously 
             signInWithCustomToken, 
             onAuthStateChanged,
             createUserWithEmailAndPassword,
@@ -203,10 +196,12 @@
             onSnapshot, 
             serverTimestamp, 
             doc,
+            getDoc, 
+            setDoc,
             setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // setLogLevel('debug'); // Uncomment for debugging
+        setLogLevel('debug'); // IMPORTANT: Uncommented for debugging
 
         // --- 1. Global Variables & Configuration ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -226,7 +221,7 @@
                     messagingSenderId: "610476861469",
                    appId: "1:610476861469:web:1a611cee75afdca6a6fef4",
 }; 
-                console.warn("Using empty config. Firebase will only run if configuration is provided by the environment.");
+                console.warn("Using empty config. Firebase will only run if configuration is provided by the environment in an actual environment.");
             }
 
         } catch (e) {
@@ -263,6 +258,8 @@
         const userIdDisplayEl = document.getElementById('user-id-display');
         const noActiveTasksEl = document.getElementById('no-active-tasks');
         const noHistoryTasksEl = document.getElementById('no-history-tasks');
+        const prioritiesGridEl = document.getElementById('priorities-grid');
+        const loadingPrioritiesEl = document.getElementById('loading-priorities');
 
         // Helper to get today's date at midnight (for filtering)
         const getStartOfToday = () => {
@@ -296,6 +293,7 @@
             isAuthReady = true;
             clearAuthInputs(); // Clear inputs on successful sign-in
             setupRealtimeListener();
+            setupPrioritiesListener(); 
         }
 
         function showLogin() {
@@ -358,8 +356,6 @@
                 displayAuthError("Login failed: " + error.message.replace('Firebase: ', ''));
             }
         }
-
-        // Removed: anonymousLogin function
       
         async function handleLogout() {
             if (!auth) return;
@@ -373,7 +369,6 @@
 
         // --- 3. Realtime Listener and Data Rendering ---
         function setupRealtimeListener() {
-// ... (omitting setupRealtimeListener, renderTasks, createTaskElement) ...
             if (!db || !userId) return;
 
             // Collection path: /artifacts/{appId}/users/{userId}/tasks
@@ -396,7 +391,7 @@
                 
                 renderTasks(tasks);
             }, (error) => {
-                console.error("Firestore Snapshot Error:", error);
+                console.error("Firestore Tasks Snapshot Error:", error);
                 loadingIndicatorEl.textContent = "Error loading data.";
             });
         }
@@ -452,7 +447,7 @@
             const taskText = document.createElement('span');
             taskText.textContent = task.text;
             // Use the general 'task-text-completed' class for consistent styling
-            const completedClass = task.isCompleted ? 'task-text-completed' : 'text-gray-700';
+            const completedClass = task.isCompleted ? 'line-through text-gray-400' : 'text-gray-700'; 
             taskText.className = `task-text ${completedClass}`;
 
             const deleteBtn = document.createElement('button');
@@ -467,10 +462,9 @@
             return div;
         }
 
-        // --- 4. CRUD Operations ---
+        // --- 4. Task CRUD Operations ---
 
         async function addTask(text) {
-// ... (omitting addTask, toggleTask, deleteTask) ...
             if (!isAuthReady || !userId) {
                 console.error("System not ready or user ID missing. Cannot add task.");
                 return;
@@ -479,7 +473,6 @@
             try {
                 const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
                 await addDoc(tasksCollectionRef, {
-                    // Removed redundant 'userId' field, as it is scoped by the collection path
                     text: text,
                     isCompleted: false,
                     dateCreated: serverTimestamp()
@@ -502,8 +495,6 @@
         }
 
         async function deleteTask(taskId) {
-            // CRITICAL FIX: Removed window.confirm() which is forbidden in this environment. 
-            // The delete button now executes the deletion directly.
             if (!isAuthReady || !userId) return;
             try {
                 const taskRef = doc(db, `artifacts/${appId}/users/${userId}/tasks`, taskId);
@@ -512,8 +503,159 @@
                 console.error("Error deleting document:", e);
             }
         }
+                
+        // --- 5. Priorities Data Model & CRUD ---
+
+        const PRIORITIES_DOC_PATH = 'projects/priorities';
+        const NUM_PRIORITIES = 3;
+
+        async function initializePriorities() {
+            if (!db || !userId) return;
+            // The path must include a collection (projects) and a document (priorities)
+            const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
+
+            // Check if document exists before creating
+            try {
+                const docSnap = await getDoc(priorityDocRef); 
+                
+                if (!docSnap.exists() || !docSnap.data().projects || docSnap.data().projects.length !== NUM_PRIORITIES) {
+                    console.log("Priorities document missing or malformed. Initializing...");
+                    const initialProjects = Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
+                        title: `Project ${index + 1} Name`,
+                        nextStep: 'Define next action step'
+                    }));
+                    // Use setDoc to create the document if it doesn't exist. Using { merge: true } for robustness.
+                    await setDoc(priorityDocRef, { projects: initialProjects, dateUpdated: serverTimestamp() }, { merge: true });
+                }
+            } catch (e) {
+                console.error("Error checking or initializing priorities (Check Firestore rules or imports):", e);
+                // Note: We don't throw here to allow the onSnapshot listener to run and report the error.
+            }
+        }
+
+        async function setupPrioritiesListener() {
+            if (!db || !userId) return;
+
+            // 1. Ensure the initial data structure exists before setting up listener
+            await initializePriorities(); 
+
+            const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
+            
+            // 2. Set up the real-time listener
+            onSnapshot(priorityDocRef, (docSnap) => {
+                loadingPrioritiesEl.classList.add('hidden');
+                loadingPrioritiesEl.textContent = ""; // Clear any previous error message
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // Ensure the projects array is present and has the right length
+                    const projects = Array.isArray(data.projects) && data.projects.length === NUM_PRIORITIES 
+                                     ? data.projects 
+                                     : [];
+                    renderPriorities(projects);
+                } else {
+                    // If document is somehow deleted, the renderPriorities fallback will draw the placeholders.
+                    renderPriorities([]); 
+                }
+            }, (error) => {
+                console.error("Firestore Priorities Snapshot Error:", error);
+                
+                // IMPROVED ERROR MESSAGE: If permission is the issue, make it clear to the user.
+                if (error.message.includes('permission')) {
+                    loadingPrioritiesEl.textContent = "ERROR: Cannot load priorities. Please ensure you have set up the Firestore Security Rules correctly for private data.";
+                    loadingPrioritiesEl.classList.remove('hidden'); 
+                    prioritiesGridEl.innerHTML = ''; // Clear grid if error occurs
+                } else {
+                    loadingPrioritiesEl.textContent = "Error loading priorities. Check console for details.";
+                }
+            });
+        }
         
-        // --- 5. Event Listeners ---
+        async function updatePriority(index, field, value) {
+            if (!isAuthReady || !userId) return;
+            try {
+                const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
+                
+                // Use array dot notation to update a specific field in a specific array element
+                // e.g., 'projects.0.title'
+                const updatePath = `projects.${index}.${field}`;
+
+                await updateDoc(priorityDocRef, {
+                    [updatePath]: value.trim(),
+                    dateUpdated: serverTimestamp()
+                });
+            } catch (e) {
+                console.error("Error updating priority:", e);
+            }
+        }
+
+        function createPriorityCardElement(project, index) {
+            const card = document.createElement('div');
+            // Card now occupies full width, styled as a single row item
+            card.className = 'bg-yellow-50 p-4 rounded-xl shadow-md border border-yellow-200 space-y-3';
+            
+            // --- Project Title Input Group ---
+            const titleGroup = document.createElement('div');
+            titleGroup.className = 'space-y-1';
+            
+            const titleLabel = document.createElement('label');
+            titleLabel.className = 'block text-xs font-medium text-gray-500 uppercase tracking-wider';
+            titleLabel.textContent = `Priority ${index + 1}: Project Name`;
+            
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.value = project.title || '';
+            titleInput.placeholder = 'e.g., Launch Marketing Campaign v2.0';
+            titleInput.className = 'w-full p-2 text-base font-bold text-gray-800 border-b-2 border-yellow-400 bg-transparent focus:outline-none focus:border-yellow-600 transition';
+            titleInput.onblur = (e) => updatePriority(index, 'title', e.target.value);
+            titleInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
+            
+            titleGroup.appendChild(titleLabel);
+            titleGroup.appendChild(titleInput);
+
+
+            // --- Next Step Input Group ---
+            const nextStepGroup = document.createElement('div');
+            nextStepGroup.className = 'space-y-1 pt-2';
+
+            const nextStepLabel = document.createElement('label');
+            nextStepLabel.className = 'block text-xs font-medium text-gray-500 uppercase tracking-wider';
+            nextStepLabel.textContent = `Next Action Step`;
+            
+            const nextStepInput = document.createElement('input');
+            nextStepInput.type = 'text';
+            nextStepInput.value = project.nextStep || '';
+            nextStepInput.placeholder = 'e.g., Draft first copy block for review.';
+            nextStepInput.className = 'w-full p-2 text-sm text-gray-700 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500 focus:bg-white transition';
+            nextStepInput.onblur = (e) => updatePriority(index, 'nextStep', e.target.value);
+            nextStepInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
+
+            nextStepGroup.appendChild(nextStepLabel);
+            nextStepGroup.appendChild(nextStepInput);
+
+
+            card.appendChild(titleGroup);
+            card.appendChild(nextStepGroup);
+            
+            return card;
+        }
+
+        function renderPriorities(projects) {
+            prioritiesGridEl.innerHTML = '';
+            
+            // Defensive array check: if we don't have 3 projects, generate placeholders
+            const actualProjects = projects.length === NUM_PRIORITIES ? projects : 
+                Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
+                    title: `Project ${index + 1} Name`,
+                    nextStep: 'Define next action step'
+                }));
+
+            actualProjects.forEach((project, index) => {
+                prioritiesGridEl.appendChild(createPriorityCardElement(project, index));
+            });
+        }
+
+        // --- 6. Event Listeners ---
         document.addEventListener('DOMContentLoaded', initializeFirebase);
         
         // Task Form Listener
@@ -540,14 +682,9 @@
             login(email, password);
         });
 
-        // Removed: document.getElementById('btn-anonymous').addEventListener('click', anonymousLogin);
         document.getElementById('btn-logout').addEventListener('click', handleLogout);
 
     </script>
 
 </body>
 </html>
-
-
-
-

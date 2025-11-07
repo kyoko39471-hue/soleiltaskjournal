@@ -232,6 +232,10 @@
 
         let app, db, auth, userId = null;
         let isAuthReady = false;
+        
+        // **CRITICAL FIX: GLOBAL CACHE**: Stores the unsaved value of the focused input during re-render
+        let activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
+
 
         // --- CRITICAL: Synchronous Firebase Initialization ---
         try {
@@ -307,7 +311,7 @@
         async function initializeFirebase() {
             if (!auth) {
                 showLogin();
-                displayAuthError("Initialization failed. Check console for config errors.");
+                displayAuthError("Firebase not initialized.");
                 return;
             }
             
@@ -577,21 +581,20 @@
                 const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
                 
                 // Use array dot notation to update a specific field in a specific array element
-                // e.g., 'projects.0.title'
                 const updatePath = `projects.${index}.${field}`;
 
+                // The .trim() here handles removing excess whitespace before saving
                 await updateDoc(priorityDocRef, {
-                    [updatePath]: value.trim(),
+                    [updatePath]: value.trim(), 
                     dateUpdated: serverTimestamp()
                 });
             } catch (e) {
                 console.error("Error updating priority:", e);
             }
         }
-
+        
         function createPriorityCardElement(project, index) {
             const card = document.createElement('div');
-            // Card now occupies full width, styled as a single row item
             card.className = 'bg-yellow-50 p-4 rounded-xl shadow-md border border-yellow-200 space-y-3';
             
             // --- Project Title Input Group ---
@@ -604,10 +607,34 @@
             
             const titleInput = document.createElement('input');
             titleInput.type = 'text';
-            titleInput.value = project.title || '';
+
+            const titleId = `priority-${index}-title`;
+            titleInput.id = titleId; // Set the ID for lookup
+            titleInput.dataset.id = titleId; 
+
+            // **CRITICAL FIX**: Use the active state cache if the ID matches, otherwise use the database value
+            titleInput.value = activeInputState.id === titleId ? activeInputState.value : (project.title || '');
+
+
             titleInput.placeholder = 'e.g., Launch Marketing Campaign v2.0';
             titleInput.className = 'w-full p-2 text-base font-bold text-gray-800 border-b-2 border-yellow-400 bg-transparent focus:outline-none focus:border-yellow-600 transition';
-            titleInput.onblur = (e) => updatePriority(index, 'title', e.target.value);
+            
+            titleInput.onblur = async (e) => {
+                await updatePriority(index, 'title', e.target.value);
+                // Clear the cache after the save is complete
+                if (activeInputState.id === titleId) {
+                    activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
+                }
+            };
+
+            // **CRITICAL FIX**: Save the transient state whenever the user types
+            titleInput.oninput = (e) => {
+                activeInputState.id = titleId;
+                activeInputState.value = e.target.value;
+                activeInputState.cursorStart = e.target.selectionStart;
+                activeInputState.cursorEnd = e.target.selectionEnd;
+            };
+
             titleInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
             
             titleGroup.appendChild(titleLabel);
@@ -624,10 +651,33 @@
             
             const nextStepInput = document.createElement('input');
             nextStepInput.type = 'text';
-            nextStepInput.value = project.nextStep || '';
+            
+            const nextStepId = `priority-${index}-nextStep`;
+            nextStepInput.id = nextStepId; // Set the ID for lookup
+            nextStepInput.dataset.id = nextStepId;
+
+            // **CRITICAL FIX**: Use the active state cache if the ID matches, otherwise use the database value
+            nextStepInput.value = activeInputState.id === nextStepId ? activeInputState.value : (project.nextStep || '');
+
             nextStepInput.placeholder = 'e.g., Draft first copy block for review.';
             nextStepInput.className = 'w-full p-2 text-sm text-gray-700 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500 focus:bg-white transition';
-            nextStepInput.onblur = (e) => updatePriority(index, 'nextStep', e.target.value);
+            
+            nextStepInput.onblur = async (e) => {
+                await updatePriority(index, 'nextStep', e.target.value); 
+                // Clear the cache after the save is complete
+                if (activeInputState.id === nextStepId) {
+                    activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
+                }
+            };
+            
+            // **CRITICAL FIX**: Save the transient state whenever the user types
+            nextStepInput.oninput = (e) => {
+                activeInputState.id = nextStepId;
+                activeInputState.value = e.target.value;
+                activeInputState.cursorStart = e.target.selectionStart;
+                activeInputState.cursorEnd = e.target.selectionEnd;
+            };
+
             nextStepInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
 
             nextStepGroup.appendChild(nextStepLabel);
@@ -641,6 +691,14 @@
         }
 
         function renderPriorities(projects) {
+            
+            // 1. Capture the ID of the currently active/focused element 
+            // We use the ID saved in the global cache.
+            const activeElementIdToRestore = activeInputState.id;
+            const cursorStartToRestore = activeInputState.cursorStart;
+            const cursorEndToRestore = activeInputState.cursorEnd;
+
+            
             prioritiesGridEl.innerHTML = '';
             
             // Defensive array check: if we don't have 3 projects, generate placeholders
@@ -650,9 +708,25 @@
                     nextStep: 'Define next action step'
                 }));
 
+            // 2. Render the new elements
             actualProjects.forEach((project, index) => {
                 prioritiesGridEl.appendChild(createPriorityCardElement(project, index));
             });
+
+            // 3. Restore Focus and Cursor Position
+            if (activeElementIdToRestore) {
+                // Must wrap in a setTimeout to ensure the element is focusable after the browser completes the DOM update.
+                setTimeout(() => {
+                    const newElement = document.getElementById(activeElementIdToRestore);
+                    if (newElement) {
+                        newElement.focus();
+                        // Restore cursor position using the cached state
+                        newElement.setSelectionRange(cursorStartToRestore, cursorEndToRestore);
+                    }
+                }, 0);
+            }
+            
+            // Note: activeInputState is only cleared on onblur/save completion.
         }
 
         // --- 6. Event Listeners ---

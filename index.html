@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToDoDone</title>
     <title>Soleil Do!</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
@@ -12,7 +13,7 @@
         /* Custom Styles for Fixed-Height Scrollable History */
         #history-list {
             /* Max height that works well on most screens */
-            max-height: 40vh;
+            max-height: 40vh; 
             overflow-y: auto; /* Enable vertical scrolling */
             /* Custom Scrollbar Styling (optional but nice) */
             scrollbar-width: thin;
@@ -53,6 +54,19 @@
             color: #FACC15;
         }
 
+        // ... inside function createTaskElement(task, type) { ...
+
+    const checkIcon = document.createElement('i');
+
+    // MODIFICATION A: Change the completed icon from 'fas fa-check-circle' to 'fas fa-circle' 
+    //                 to get a solid bullet point.
+    checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
+    checkIcon.onclick = () => toggleTask(task);
+
+    const taskText = document.createElement('span');
+    taskText.textContent = task.text;
+
+
         /* Modal Backdrop */
         .auth-modal-backdrop {
             position: fixed;
@@ -83,35 +97,35 @@
             <form id="auth-form" class="space-y-4">
                 <div>
                     <label for="auth-email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input
-                        id="auth-email"
-                        type="email"
-                        placeholder="user@example.com"
-                        required
+                    <input 
+                        id="auth-email" 
+                        type="email" 
+                        placeholder="user@example.com" 
+                        required 
                         class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
                     >
                 </div>
                 <div>
                     <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input
-                        id="auth-password"
-                        type="password"
-                        placeholder="••••••••"
-                        required
+                    <input 
+                        id="auth-password" 
+                        type="password" 
+                        placeholder="••••••••" 
+                        required 
                         class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
                     >
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <button
-                        type="button"
+                    <button 
+                        type="button" 
                         id="btn-login"
                         class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
                     >
                         Log In
                     </button>
-                    <button
-                        type="button"
+                    <button 
+                        type="button" 
                         id="btn-register"
                         class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
                     >
@@ -135,15 +149,15 @@
         </header>
 
         <form id="task-form" class="flex gap-2">
-            <input
-                id="task-input"
-                type="text"
-                placeholder="What's your task for today?"
-                required
+            <input 
+                id="task-input" 
+                type="text" 
+                placeholder="What's your task for today?" 
+                required 
                 class="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             >
-            <button
-                type="submit"
+            <button 
+                type="submit" 
                 class="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-5 rounded-xl transition duration-200 shadow-md flex items-center justify-center"
                 aria-label="Add Task"
             >
@@ -166,42 +180,34 @@
             </div>
         </section>
 
-        <section class="space-y-4 pt-8 border-t border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🌟 Top 3 Priorities </h2>
-            <div id="priorities-grid" class="grid grid-cols-1 gap-4">
-            </div>
-            <p id="loading-priorities" class="text-gray-500 text-center py-2">Loading priorities...</p>
-        </section>
-
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import {
-            getAuth,
-            signInWithCustomToken,
+        import { 
+            getAuth, 
+            // Removed: signInAnonymously 
+            signInWithCustomToken, 
             onAuthStateChanged,
             createUserWithEmailAndPassword,
             signInWithEmailAndPassword,
             signOut
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import {
-            getFirestore,
-            collection,
-            query,
-            orderBy,
-            addDoc,
-            updateDoc,
-            deleteDoc,
-            onSnapshot, // Still needed for the main tasks list
-            serverTimestamp,
+        import { 
+            getFirestore, 
+            collection, 
+            query, 
+            orderBy, 
+            addDoc, 
+            updateDoc, 
+            deleteDoc, 
+            onSnapshot, 
+            serverTimestamp, 
             doc,
-            getDoc, // Used now for static priority loading
-            setDoc,
             setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        setLogLevel('debug'); // IMPORTANT: Uncommented for debugging
+        // setLogLevel('debug'); // Uncomment for debugging
 
         // --- 1. Global Variables & Configuration ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -213,15 +219,15 @@
             if (envConfig) {
                 firebaseConfig = JSON.parse(envConfig);
             } else {
-                // If config is not provided by the environment, use a placeholder
+                // If config is not provided by the environment, use a placeholder 
                 firebaseConfig = {apiKey: "AIzaSyBfqECRUln_chnQ4tR-u5RXQT8ElmMxgyk",
                authDomain: "sj-s-todolist.firebaseapp.com",
                     projectId: "sj-s-todolist",
                     storageBucket: "sj-s-todolist.firebasestorage.app",
                     messagingSenderId: "610476861469",
                    appId: "1:610476861469:web:1a611cee75afdca6a6fef4",
-};
-                console.warn("Using empty config. Firebase will only run if configuration is provided by the environment in an actual environment.");
+}; 
+                console.warn("Using empty config. Firebase will only run if configuration is provided by the environment.");
             }
 
         } catch (e) {
@@ -232,8 +238,6 @@
 
         let app, db, auth, userId = null;
         let isAuthReady = false;
-        
-        // REMOVED: activeElementId tracking variable
 
         // --- CRITICAL: Synchronous Firebase Initialization ---
         try {
@@ -260,8 +264,6 @@
         const userIdDisplayEl = document.getElementById('user-id-display');
         const noActiveTasksEl = document.getElementById('no-active-tasks');
         const noHistoryTasksEl = document.getElementById('no-history-tasks');
-        const prioritiesGridEl = document.getElementById('priorities-grid');
-        const loadingPrioritiesEl = document.getElementById('loading-priorities');
 
         // Helper to get today's date at midnight (for filtering)
         const getStartOfToday = () => {
@@ -294,8 +296,7 @@
             appContainerEl.style.display = 'block'; // Show the main app content
             isAuthReady = true;
             clearAuthInputs(); // Clear inputs on successful sign-in
-            setupRealtimeListener(); // Main task list remains real-time
-            loadStaticPriorities(); // **Priorities are now loaded statically**
+            setupRealtimeListener();
         }
 
         function showLogin() {
@@ -309,7 +310,7 @@
         async function initializeFirebase() {
             if (!auth) {
                 showLogin();
-                displayAuthError("Firebase not initialized.");
+                displayAuthError("Initialization failed. Check console for config errors.");
                 return;
             }
 
@@ -359,6 +360,8 @@
             }
         }
 
+        // Removed: anonymousLogin function
+
         async function handleLogout() {
             if (!auth) return;
             try {
@@ -369,8 +372,9 @@
         }
 
 
-        // --- 3. Realtime Listener and Data Rendering (for Tasks) ---
+        // --- 3. Realtime Listener and Data Rendering ---
         function setupRealtimeListener() {
+// ... (omitting setupRealtimeListener, renderTasks, createTaskElement) ...
             if (!db || !userId) return;
 
             // Collection path: /artifacts/{appId}/users/{userId}/tasks
@@ -393,7 +397,7 @@
 
                 renderTasks(tasks);
             }, (error) => {
-                console.error("Firestore Tasks Snapshot Error:", error);
+                console.error("Firestore Snapshot Error:", error);
                 loadingIndicatorEl.textContent = "Error loading data.";
             });
         }
@@ -449,7 +453,7 @@
             const taskText = document.createElement('span');
             taskText.textContent = task.text;
             // Use the general 'task-text-completed' class for consistent styling
-            const completedClass = task.isCompleted ? 'line-through text-gray-400' : 'text-gray-700';
+            const completedClass = task.isCompleted ? 'task-text-completed' : 'text-gray-700';
             taskText.className = `task-text ${completedClass}`;
 
             const deleteBtn = document.createElement('button');
@@ -464,9 +468,10 @@
             return div;
         }
 
-        // --- 4. Task CRUD Operations ---
+        // --- 4. CRUD Operations ---
 
         async function addTask(text) {
+// ... (omitting addTask, toggleTask, deleteTask) ...
             if (!isAuthReady || !userId) {
                 console.error("System not ready or user ID missing. Cannot add task.");
                 return;
@@ -475,6 +480,7 @@
             try {
                 const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
                 await addDoc(tasksCollectionRef, {
+                    // Removed redundant 'userId' field, as it is scoped by the collection path
                     text: text,
                     isCompleted: false,
                     dateCreated: serverTimestamp()
@@ -497,6 +503,8 @@
         }
 
         async function deleteTask(taskId) {
+            // CRITICAL FIX: Removed window.confirm() which is forbidden in this environment. 
+            // The delete button now executes the deletion directly.
             if (!isAuthReady || !userId) return;
             try {
                 const taskRef = doc(db, `artifacts/${appId}/users/${userId}/tasks`, taskId);
@@ -506,183 +514,9 @@
             }
         }
 
-        // --- 5. Priorities Data Model & Static Load ---
-
-        const PRIORITIES_DOC_PATH = 'projects/priorities';
-        const NUM_PRIORITIES = 3;
-
-        // NEW: Function to load priorities once (static)
-        async function loadStaticPriorities() {
-            if (!db || !userId) return;
-
-            const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
-
-            // Clear loading states
-            loadingPrioritiesEl.classList.add('hidden');
-            loadingPrioritiesEl.textContent = "";
-
-            try {
-                // Use getDoc() for a single read, avoiding the real-time listener
-                const docSnap = await getDoc(priorityDocRef); 
-
-                // FIX: Initialization logic moved here - create document only if it doesn't exist
-        if (!docSnap.exists()) {
-            console.log("Priorities document missing. Creating initial structure.");
-            const initialProjects = Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
-                title: `Project ${index + 1} Name`,
-                nextStep: 'Define next action step'
-            }));
-            // Create the initial document
-            await setDoc(priorityDocRef, { projects: initialProjects, dateUpdated: serverTimestamp() });
-            
-            // Re-fetch the document snapshot now that it exists
-            docSnap = await getDoc(priorityDocRef); 
-        }
-        // END FIX
-
-                if (docSnap.exists()) {
-                    const data = docSnap.data();
-                    const projects = Array.isArray(data.projects) && data.projects.length === NUM_PRIORITIES
-                                     ? data.projects
-                                     : [];
-                    renderPriorities(projects);
-                } else {
-                    renderPriorities([]); // Render initial placeholders
-                }
-            } catch (error) {
-                console.error("Firestore Priorities Load Error:", error);
-                loadingPrioritiesEl.textContent = "Error loading priorities. This section is static.";
-                loadingPrioritiesEl.classList.remove('hidden');
-                prioritiesGridEl.innerHTML = ''; // Clear grid if error occurs
-            }
-        }
-
-
-        function createPriorityCardElement(project, index) {
-            const form = document.createElement('form');
-            form.className = 'bg-yellow-50 p-4 rounded-xl shadow-md border border-yellow-200 space-y-3';
-            
-            // --- Project Title Input Group ---
-            const titleGroup = document.createElement('div');
-            titleGroup.className = 'space-y-1';
-            
-            const titleLabel = document.createElement('label');
-            titleLabel.className = 'block text-xs font-medium text-gray-500 uppercase tracking-wider';
-            titleLabel.textContent = `Priority ${index + 1}: Project Name`;
-            
-            const titleInput = document.createElement('input');
-            titleInput.type = 'text';
-            titleInput.name = 'title'; 
-            titleInput.id = `priority-${index}-title`; 
-            titleInput.value = project.title || '';
-            titleInput.placeholder = 'e.g., Launch Marketing Campaign v2.0';
-            titleInput.className = 'w-full p-2 text-base font-bold text-gray-800 border-b-2 border-yellow-400 bg-transparent focus:outline-none focus:border-yellow-600 transition';
-            
-            // REMOVED: onfocus/onblur handlers 
-            
-            titleGroup.appendChild(titleLabel);
-            titleGroup.appendChild(titleInput);
-
-
-            // --- Next Step Input Group ---
-            const nextStepGroup = document.createElement('div');
-            nextStepGroup.className = 'space-y-1 pt-2';
-
-            const nextStepLabel = document.createElement('label');
-            nextStepLabel.className = 'block text-xs font-medium text-gray-500 uppercase tracking-wider';
-            nextStepLabel.textContent = `Next Action Step`;
-            
-            const nextStepInput = document.createElement('input');
-            nextStepInput.type = 'text';
-            nextStepInput.name = 'nextStep';
-            nextStepInput.id = `priority-${index}-nextStep`; 
-            nextStepInput.value = project.nextStep || '';
-            nextStepInput.placeholder = 'e.g., Draft first copy block for review.';
-            nextStepInput.className = 'w-full p-2 text-sm text-gray-700 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500 focus:bg-white transition';
-            
-            // REMOVED: onfocus/onblur handlers 
-
-            nextStepGroup.appendChild(nextStepLabel);
-            nextStepGroup.appendChild(nextStepInput);
-            
-            // --- Save Button ---
-            const saveBtn = document.createElement('button');
-            saveBtn.type = 'submit';
-            saveBtn.className = 'w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg transition duration-200 shadow-md flex items-center justify-center gap-2 mt-4';
-            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Priority';
-            
-            
-            form.appendChild(titleGroup);
-            form.appendChild(nextStepGroup);
-            form.appendChild(saveBtn);
-            
-            
-            // Add the Form Submission Handler
-            form.onsubmit = async (e) => {
-                e.preventDefault();
-                
-                if (!isAuthReady || !userId) return;
-                
-                // Get current values from the form inputs
-                const newTitle = titleInput.value.trim();
-                const newNextStep = nextStepInput.value.trim();
-                
-                // We assume if the user hits save, they want to save.
-                
-                try {
-                    const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
-                    
-                    const updates = { 
-                        dateUpdated: serverTimestamp(),
-                        [`projects.${index}.title`]: newTitle,
-                        [`projects.${index}.nextStep`]: newNextStep
-                    };
-                    
-                    await updateDoc(priorityDocRef, updates);
-
-                    // Optional: Visually confirm the save (e.g., briefly change button text)
-                    const originalText = saveBtn.innerHTML;
-                    saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved! (Refresh to see if saved by others)';
-                    setTimeout(() => {
-                        saveBtn.innerHTML = originalText;
-                    }, 2500); // Give user time to read the message
-
-                    // CRITICAL: Manually update the 'project' object to prevent immediate flicker 
-                    // if this card is immediately edited again before a full page refresh.
-                    project.title = newTitle;
-                    project.nextStep = newNextStep;
-
-                } catch (error) {
-                     console.error("Error submitting priority update:", error);
-                     saveBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error!';
-                     setTimeout(() => {
-                         saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Priority';
-                     }, 2500);
-                }
-            };
-
-            return form;
-        }
-
-        function renderPriorities(projects) {
-            // No need for focus restoration logic here anymore.
-            prioritiesGridEl.innerHTML = '';
-            
-            const actualProjects = projects.length === NUM_PRIORITIES ? projects : 
-                Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
-                    title: `Project ${index + 1} Name`,
-                    nextStep: 'Define next action step'
-                }));
-
-            // Render the elements
-            actualProjects.forEach((project, index) => {
-                prioritiesGridEl.appendChild(createPriorityCardElement(project, index));
-            });
-        }
-
-        // --- 6. Event Listeners ---
+        // --- 5. Event Listeners ---
         document.addEventListener('DOMContentLoaded', initializeFirebase);
-        
+
         // Task Form Listener
         document.getElementById('task-form').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -707,6 +541,7 @@
             login(email, password);
         });
 
+        // Removed: document.getElementById('btn-anonymous').addEventListener('click', anonymousLogin);
         document.getElementById('btn-logout').addEventListener('click', handleLogout);
 
     </script>

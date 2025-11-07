@@ -511,32 +511,9 @@
         const PRIORITIES_DOC_PATH = 'projects/priorities';
         const NUM_PRIORITIES = 3;
 
-        async function initializePriorities() {
-            if (!db || !userId) return;
-            const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
-
-            try {
-                const docSnap = await getDoc(priorityDocRef);
-
-                if (!docSnap.exists() || !docSnap.data().projects || docSnap.data().projects.length !== NUM_PRIORITIES) {
-                    console.log("Priorities document missing or malformed. Initializing...");
-                    const initialProjects = Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
-                        title: `Project ${index + 1} Name`,
-                        nextStep: 'Define next action step'
-                    }));
-                    await setDoc(priorityDocRef, { projects: initialProjects, dateUpdated: serverTimestamp() }, { merge: true });
-                }
-            } catch (e) {
-                console.error("Error checking or initializing priorities:", e);
-            }
-        }
-        
         // NEW: Function to load priorities once (static)
         async function loadStaticPriorities() {
             if (!db || !userId) return;
-
-            // 1. Ensure the initial data structure exists before loading
-            await initializePriorities();
 
             const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
 
@@ -547,6 +524,21 @@
             try {
                 // Use getDoc() for a single read, avoiding the real-time listener
                 const docSnap = await getDoc(priorityDocRef); 
+
+                // FIX: Initialization logic moved here - create document only if it doesn't exist
+        if (!docSnap.exists()) {
+            console.log("Priorities document missing. Creating initial structure.");
+            const initialProjects = Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
+                title: `Project ${index + 1} Name`,
+                nextStep: 'Define next action step'
+            }));
+            // Create the initial document
+            await setDoc(priorityDocRef, { projects: initialProjects, dateUpdated: serverTimestamp() });
+            
+            // Re-fetch the document snapshot now that it exists
+            docSnap = await getDoc(priorityDocRef); 
+        }
+        // END FIX
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();

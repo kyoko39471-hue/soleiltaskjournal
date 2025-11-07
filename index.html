@@ -7,12 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    
+
     <style>
         /* Custom Styles for Fixed-Height Scrollable History */
         #history-list {
             /* Max height that works well on most screens */
-            max-height: 40vh; 
+            max-height: 40vh;
             overflow-y: auto; /* Enable vertical scrolling */
             /* Custom Scrollbar Styling (optional but nice) */
             scrollbar-width: thin;
@@ -25,7 +25,7 @@
             padding: 10px 10px 10px 15px;
             border-bottom: 1px solid #f3f4f6; /* light line separation */
         }
-        
+
         .task-item:last-child {
             border-bottom: none;
         }
@@ -52,7 +52,7 @@
         .completed-icon {
             color: #FACC15;
         }
-        
+
         /* Modal Backdrop */
         .auth-modal-backdrop {
             position: fixed;
@@ -79,39 +79,39 @@
         <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full space-y-6">
             <h2 class="text-2xl font-bold text-center text-gray-800">Welcome!</h2>
             <p id="auth-error" class="text-sm text-center text-red-500 hidden"></p>
-            
+
             <form id="auth-form" class="space-y-4">
                 <div>
                     <label for="auth-email" class="block text-sm font-medium text-gray-700">Email</label>
-                    <input 
-                        id="auth-email" 
-                        type="email" 
-                        placeholder="user@example.com" 
-                        required 
+                    <input
+                        id="auth-email"
+                        type="email"
+                        placeholder="user@example.com"
+                        required
                         class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
                     >
                 </div>
                 <div>
                     <label for="auth-password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input 
-                        id="auth-password" 
-                        type="password" 
-                        placeholder="••••••••" 
-                        required 
+                    <input
+                        id="auth-password"
+                        type="password"
+                        placeholder="••••••••"
+                        required
                         class="w-full mt-1 p-3 border border-gray-300 rounded-xl focus:ring-teal-400 focus:border-teal-400 transition"
                     >
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         id="btn-login"
                         class="bg-teal-500 hover:bg-teal-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
                     >
                         Log In
                     </button>
-                    <button 
-                        type="button" 
+                    <button
+                        type="button"
                         id="btn-register"
                         class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-xl transition duration-200 shadow-md"
                     >
@@ -135,15 +135,15 @@
         </header>
 
         <form id="task-form" class="flex gap-2">
-            <input 
-                id="task-input" 
-                type="text" 
-                placeholder="What's your task for today?" 
-                required 
+            <input
+                id="task-input"
+                type="text"
+                placeholder="What's your task for today?"
+                required
                 class="flex-grow p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
             >
-            <button 
-                type="submit" 
+            <button
+                type="submit"
                 class="bg-blue-700 hover:bg-blue-800 text-white font-semibold py-3 px-5 rounded-xl transition duration-200 shadow-md flex items-center justify-center"
                 aria-label="Add Task"
             >
@@ -168,7 +168,7 @@
 
         <section class="space-y-4 pt-8 border-t border-gray-200">
             <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">🌟 Top 3 Priorities </h2>
-            <div id="priorities-grid" class="grid grid-cols-1 gap-4"> 
+            <div id="priorities-grid" class="grid grid-cols-1 gap-4">
             </div>
             <p id="loading-priorities" class="text-gray-500 text-center py-2">Loading priorities...</p>
         </section>
@@ -177,65 +177,63 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { 
-            getAuth, 
-            signInWithCustomToken, 
+        import {
+            getAuth,
+            signInWithCustomToken,
             onAuthStateChanged,
             createUserWithEmailAndPassword,
             signInWithEmailAndPassword,
             signOut
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, 
-            collection, 
-            query, 
-            orderBy, 
-            addDoc, 
-            updateDoc, 
-            deleteDoc, 
-            onSnapshot, 
-            serverTimestamp, 
+        import {
+            getFirestore,
+            collection,
+            query,
+            orderBy,
+            addDoc,
+            updateDoc,
+            deleteDoc,
+            onSnapshot, // Still needed for the main tasks list
+            serverTimestamp,
             doc,
-            getDoc, 
+            getDoc, // Used now for static priority loading
             setDoc,
             setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
+
         setLogLevel('debug'); // IMPORTANT: Uncommented for debugging
 
         // --- 1. Global Variables & Configuration ---
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         let firebaseConfig = {};
-        
+
         try {
             const envConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
 
             if (envConfig) {
                 firebaseConfig = JSON.parse(envConfig);
             } else {
-                // If config is not provided by the environment, use a placeholder 
+                // If config is not provided by the environment, use a placeholder
                 firebaseConfig = {apiKey: "AIzaSyBfqECRUln_chnQ4tR-u5RXQT8ElmMxgyk",
                authDomain: "sj-s-todolist.firebaseapp.com",
                     projectId: "sj-s-todolist",
                     storageBucket: "sj-s-todolist.firebasestorage.app",
                     messagingSenderId: "610476861469",
                    appId: "1:610476861469:web:1a611cee75afdca6a6fef4",
-}; 
+};
                 console.warn("Using empty config. Firebase will only run if configuration is provided by the environment in an actual environment.");
             }
 
         } catch (e) {
             console.error("Failed to parse firebase config:", e);
         }
-        
+
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
         let app, db, auth, userId = null;
         let isAuthReady = false;
         
-        // **CRITICAL FIX: GLOBAL CACHE**: Stores the unsaved value of the focused input during re-render
-        let activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
-
+        // REMOVED: activeElementId tracking variable
 
         // --- CRITICAL: Synchronous Firebase Initialization ---
         try {
@@ -296,8 +294,8 @@
             appContainerEl.style.display = 'block'; // Show the main app content
             isAuthReady = true;
             clearAuthInputs(); // Clear inputs on successful sign-in
-            setupRealtimeListener();
-            setupPrioritiesListener(); 
+            setupRealtimeListener(); // Main task list remains real-time
+            loadStaticPriorities(); // **Priorities are now loaded statically**
         }
 
         function showLogin() {
@@ -314,7 +312,7 @@
                 displayAuthError("Firebase not initialized.");
                 return;
             }
-            
+
             // Setup the state listener
             onAuthStateChanged(auth, (user) => {
                 if (user) {
@@ -337,7 +335,7 @@
         async function register(email, password) {
             if (!auth) { displayAuthError("Firebase not initialized."); return; }
             if (!email || !password) { displayAuthError("Please enter both email and password."); return; }
-            
+
             hideAuthError();
             try {
                 // IMPORTANT: This requires Email/Password sign-in to be enabled in Firebase console
@@ -360,7 +358,7 @@
                 displayAuthError("Login failed: " + error.message.replace('Firebase: ', ''));
             }
         }
-      
+
         async function handleLogout() {
             if (!auth) return;
             try {
@@ -371,28 +369,28 @@
         }
 
 
-        // --- 3. Realtime Listener and Data Rendering ---
+        // --- 3. Realtime Listener and Data Rendering (for Tasks) ---
         function setupRealtimeListener() {
             if (!db || !userId) return;
 
             // Collection path: /artifacts/{appId}/users/{userId}/tasks
             const tasksCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/tasks`);
-            
+
             // Query for all tasks, ordered by creation date (newest first)
             const tasksQuery = query(
                 tasksCollectionRef,
                 orderBy('dateCreated', 'desc')
             );
-            
+
             // onSnapshot listens for real-time changes
             onSnapshot(tasksQuery, (snapshot) => {
                 loadingIndicatorEl.classList.add('hidden');
-                
+
                 const tasks = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 }));
-                
+
                 renderTasks(tasks);
             }, (error) => {
                 console.error("Firestore Tasks Snapshot Error:", error);
@@ -402,14 +400,14 @@
 
         function renderTasks(tasks) {
             const startOfToday = getStartOfToday().getTime();
-            
+
             const activeTasks = [];
             const historyTasks = [];
 
             tasks.forEach(task => {
                 // Ensure dateCreated is a valid Timestamp before calling toDate()
                 const taskTime = task.dateCreated?.toDate?.()?.getTime() || 0;
-                
+
                 if (taskTime >= startOfToday) {
                     activeTasks.push(task);
                 } else {
@@ -447,11 +445,11 @@
             const checkIcon = document.createElement('i');
             checkIcon.className = `check-icon ${task.isCompleted ? 'fas fa-check-circle completed-icon' : 'far fa-circle incomplete-icon'}`;
             checkIcon.onclick = () => toggleTask(task);
-            
+
             const taskText = document.createElement('span');
             taskText.textContent = task.text;
             // Use the general 'task-text-completed' class for consistent styling
-            const completedClass = task.isCompleted ? 'line-through text-gray-400' : 'text-gray-700'; 
+            const completedClass = task.isCompleted ? 'line-through text-gray-400' : 'text-gray-700';
             taskText.className = `task-text ${completedClass}`;
 
             const deleteBtn = document.createElement('button');
@@ -507,95 +505,70 @@
                 console.error("Error deleting document:", e);
             }
         }
-                
-        // --- 5. Priorities Data Model & CRUD ---
+
+        // --- 5. Priorities Data Model & Static Load ---
 
         const PRIORITIES_DOC_PATH = 'projects/priorities';
         const NUM_PRIORITIES = 3;
 
         async function initializePriorities() {
             if (!db || !userId) return;
-            // The path must include a collection (projects) and a document (priorities)
             const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
 
-            // Check if document exists before creating
             try {
-                const docSnap = await getDoc(priorityDocRef); 
-                
+                const docSnap = await getDoc(priorityDocRef);
+
                 if (!docSnap.exists() || !docSnap.data().projects || docSnap.data().projects.length !== NUM_PRIORITIES) {
                     console.log("Priorities document missing or malformed. Initializing...");
                     const initialProjects = Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
                         title: `Project ${index + 1} Name`,
                         nextStep: 'Define next action step'
                     }));
-                    // Use setDoc to create the document if it doesn't exist. Using { merge: true } for robustness.
                     await setDoc(priorityDocRef, { projects: initialProjects, dateUpdated: serverTimestamp() }, { merge: true });
                 }
             } catch (e) {
-                console.error("Error checking or initializing priorities (Check Firestore rules or imports):", e);
-                // Note: We don't throw here to allow the onSnapshot listener to run and report the error.
+                console.error("Error checking or initializing priorities:", e);
             }
         }
-
-        async function setupPrioritiesListener() {
+        
+        // NEW: Function to load priorities once (static)
+        async function loadStaticPriorities() {
             if (!db || !userId) return;
 
-            // 1. Ensure the initial data structure exists before setting up listener
-            await initializePriorities(); 
+            // 1. Ensure the initial data structure exists before loading
+            await initializePriorities();
 
             const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
-            
-            // 2. Set up the real-time listener
-            onSnapshot(priorityDocRef, (docSnap) => {
-                loadingPrioritiesEl.classList.add('hidden');
-                loadingPrioritiesEl.textContent = ""; // Clear any previous error message
+
+            // Clear loading states
+            loadingPrioritiesEl.classList.add('hidden');
+            loadingPrioritiesEl.textContent = "";
+
+            try {
+                // Use getDoc() for a single read, avoiding the real-time listener
+                const docSnap = await getDoc(priorityDocRef); 
 
                 if (docSnap.exists()) {
                     const data = docSnap.data();
-                    // Ensure the projects array is present and has the right length
-                    const projects = Array.isArray(data.projects) && data.projects.length === NUM_PRIORITIES 
-                                     ? data.projects 
+                    const projects = Array.isArray(data.projects) && data.projects.length === NUM_PRIORITIES
+                                     ? data.projects
                                      : [];
                     renderPriorities(projects);
                 } else {
-                    // If document is somehow deleted, the renderPriorities fallback will draw the placeholders.
-                    renderPriorities([]); 
+                    renderPriorities([]); // Render initial placeholders
                 }
-            }, (error) => {
-                console.error("Firestore Priorities Snapshot Error:", error);
-                
-                // IMPROVED ERROR MESSAGE: If permission is the issue, make it clear to the user.
-                if (error.message.includes('permission')) {
-                    loadingPrioritiesEl.textContent = "ERROR: Cannot load priorities. Please ensure you have set up the Firestore Security Rules correctly for private data.";
-                    loadingPrioritiesEl.classList.remove('hidden'); 
-                    prioritiesGridEl.innerHTML = ''; // Clear grid if error occurs
-                } else {
-                    loadingPrioritiesEl.textContent = "Error loading priorities. Check console for details.";
-                }
-            });
-        }
-        
-        async function updatePriority(index, field, value) {
-            if (!isAuthReady || !userId) return;
-            try {
-                const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
-                
-                // Use array dot notation to update a specific field in a specific array element
-                const updatePath = `projects.${index}.${field}`;
-
-                // The .trim() here handles removing excess whitespace before saving
-                await updateDoc(priorityDocRef, {
-                    [updatePath]: value.trim(), 
-                    dateUpdated: serverTimestamp()
-                });
-            } catch (e) {
-                console.error("Error updating priority:", e);
+            } catch (error) {
+                console.error("Firestore Priorities Load Error:", error);
+                loadingPrioritiesEl.textContent = "Error loading priorities. This section is static.";
+                loadingPrioritiesEl.classList.remove('hidden');
+                prioritiesGridEl.innerHTML = ''; // Clear grid if error occurs
             }
         }
-        
+
+
         function createPriorityCardElement(project, index) {
-            const card = document.createElement('div');
-            card.className = 'bg-yellow-50 p-4 rounded-xl shadow-md border border-yellow-200 space-y-3';
+            const form = document.createElement('form');
+            form.className = 'bg-yellow-50 p-4 rounded-xl shadow-md border border-yellow-200 space-y-3';
             
             // --- Project Title Input Group ---
             const titleGroup = document.createElement('div');
@@ -607,35 +580,13 @@
             
             const titleInput = document.createElement('input');
             titleInput.type = 'text';
-
-            const titleId = `priority-${index}-title`;
-            titleInput.id = titleId; // Set the ID for lookup
-            titleInput.dataset.id = titleId; 
-
-            // **CRITICAL FIX**: Use the active state cache if the ID matches, otherwise use the database value
-            titleInput.value = activeInputState.id === titleId ? activeInputState.value : (project.title || '');
-
-
+            titleInput.name = 'title'; 
+            titleInput.id = `priority-${index}-title`; 
+            titleInput.value = project.title || '';
             titleInput.placeholder = 'e.g., Launch Marketing Campaign v2.0';
             titleInput.className = 'w-full p-2 text-base font-bold text-gray-800 border-b-2 border-yellow-400 bg-transparent focus:outline-none focus:border-yellow-600 transition';
             
-            titleInput.onblur = async (e) => {
-                await updatePriority(index, 'title', e.target.value);
-                // Clear the cache after the save is complete
-                if (activeInputState.id === titleId) {
-                    activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
-                }
-            };
-
-            // **CRITICAL FIX**: Save the transient state whenever the user types
-            titleInput.oninput = (e) => {
-                activeInputState.id = titleId;
-                activeInputState.value = e.target.value;
-                activeInputState.cursorStart = e.target.selectionStart;
-                activeInputState.cursorEnd = e.target.selectionEnd;
-            };
-
-            titleInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
+            // REMOVED: onfocus/onblur handlers 
             
             titleGroup.appendChild(titleLabel);
             titleGroup.appendChild(titleInput);
@@ -651,82 +602,90 @@
             
             const nextStepInput = document.createElement('input');
             nextStepInput.type = 'text';
-            
-            const nextStepId = `priority-${index}-nextStep`;
-            nextStepInput.id = nextStepId; // Set the ID for lookup
-            nextStepInput.dataset.id = nextStepId;
-
-            // **CRITICAL FIX**: Use the active state cache if the ID matches, otherwise use the database value
-            nextStepInput.value = activeInputState.id === nextStepId ? activeInputState.value : (project.nextStep || '');
-
+            nextStepInput.name = 'nextStep';
+            nextStepInput.id = `priority-${index}-nextStep`; 
+            nextStepInput.value = project.nextStep || '';
             nextStepInput.placeholder = 'e.g., Draft first copy block for review.';
             nextStepInput.className = 'w-full p-2 text-sm text-gray-700 border border-yellow-300 rounded-lg focus:outline-none focus:border-yellow-500 focus:bg-white transition';
             
-            nextStepInput.onblur = async (e) => {
-                await updatePriority(index, 'nextStep', e.target.value); 
-                // Clear the cache after the save is complete
-                if (activeInputState.id === nextStepId) {
-                    activeInputState = { id: null, value: null, cursorStart: 0, cursorEnd: 0 };
-                }
-            };
-            
-            // **CRITICAL FIX**: Save the transient state whenever the user types
-            nextStepInput.oninput = (e) => {
-                activeInputState.id = nextStepId;
-                activeInputState.value = e.target.value;
-                activeInputState.cursorStart = e.target.selectionStart;
-                activeInputState.cursorEnd = e.target.selectionEnd;
-            };
-
-            nextStepInput.onkeydown = (e) => { if (e.key === 'Enter') e.target.blur(); };
+            // REMOVED: onfocus/onblur handlers 
 
             nextStepGroup.appendChild(nextStepLabel);
             nextStepGroup.appendChild(nextStepInput);
-
-
-            card.appendChild(titleGroup);
-            card.appendChild(nextStepGroup);
             
-            return card;
+            // --- Save Button ---
+            const saveBtn = document.createElement('button');
+            saveBtn.type = 'submit';
+            saveBtn.className = 'w-full bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 rounded-lg transition duration-200 shadow-md flex items-center justify-center gap-2 mt-4';
+            saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Priority';
+            
+            
+            form.appendChild(titleGroup);
+            form.appendChild(nextStepGroup);
+            form.appendChild(saveBtn);
+            
+            
+            // Add the Form Submission Handler
+            form.onsubmit = async (e) => {
+                e.preventDefault();
+                
+                if (!isAuthReady || !userId) return;
+                
+                // Get current values from the form inputs
+                const newTitle = titleInput.value.trim();
+                const newNextStep = nextStepInput.value.trim();
+                
+                // We assume if the user hits save, they want to save.
+                
+                try {
+                    const priorityDocRef = doc(db, `artifacts/${appId}/users/${userId}/${PRIORITIES_DOC_PATH}`);
+                    
+                    const updates = { 
+                        dateUpdated: serverTimestamp(),
+                        [`projects.${index}.title`]: newTitle,
+                        [`projects.${index}.nextStep`]: newNextStep
+                    };
+                    
+                    await updateDoc(priorityDocRef, updates);
+
+                    // Optional: Visually confirm the save (e.g., briefly change button text)
+                    const originalText = saveBtn.innerHTML;
+                    saveBtn.innerHTML = '<i class="fas fa-check"></i> Saved! (Refresh to see if saved by others)';
+                    setTimeout(() => {
+                        saveBtn.innerHTML = originalText;
+                    }, 2500); // Give user time to read the message
+
+                    // CRITICAL: Manually update the 'project' object to prevent immediate flicker 
+                    // if this card is immediately edited again before a full page refresh.
+                    project.title = newTitle;
+                    project.nextStep = newNextStep;
+
+                } catch (error) {
+                     console.error("Error submitting priority update:", error);
+                     saveBtn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error!';
+                     setTimeout(() => {
+                         saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Priority';
+                     }, 2500);
+                }
+            };
+
+            return form;
         }
 
         function renderPriorities(projects) {
-            
-            // 1. Capture the ID of the currently active/focused element 
-            // We use the ID saved in the global cache.
-            const activeElementIdToRestore = activeInputState.id;
-            const cursorStartToRestore = activeInputState.cursorStart;
-            const cursorEndToRestore = activeInputState.cursorEnd;
-
-            
+            // No need for focus restoration logic here anymore.
             prioritiesGridEl.innerHTML = '';
             
-            // Defensive array check: if we don't have 3 projects, generate placeholders
             const actualProjects = projects.length === NUM_PRIORITIES ? projects : 
                 Array(NUM_PRIORITIES).fill(null).map((_, index) => ({
                     title: `Project ${index + 1} Name`,
                     nextStep: 'Define next action step'
                 }));
 
-            // 2. Render the new elements
+            // Render the elements
             actualProjects.forEach((project, index) => {
                 prioritiesGridEl.appendChild(createPriorityCardElement(project, index));
             });
-
-            // 3. Restore Focus and Cursor Position
-            if (activeElementIdToRestore) {
-                // Must wrap in a setTimeout to ensure the element is focusable after the browser completes the DOM update.
-                setTimeout(() => {
-                    const newElement = document.getElementById(activeElementIdToRestore);
-                    if (newElement) {
-                        newElement.focus();
-                        // Restore cursor position using the cached state
-                        newElement.setSelectionRange(cursorStartToRestore, cursorEndToRestore);
-                    }
-                }, 0);
-            }
-            
-            // Note: activeInputState is only cleared on onblur/save completion.
         }
 
         // --- 6. Event Listeners ---
